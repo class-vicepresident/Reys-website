@@ -1,0 +1,672 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Class Sheriff Election 💜</title>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+  <style>
+    :root {
+      --purple: #a855f7;
+      --light-purple: #e9d5ff;
+      --dark: #10051b;
+      --card: #241039;
+      --white: #fff;
+      --muted: #dec9f2;
+    }
+
+    * { box-sizing: border-box; }
+
+    html {
+      scroll-behavior: smooth;
+      scroll-padding-top: 20px;
+    }
+
+    body {
+      margin: 0;
+      color: var(--white);
+      font-family: Arial, Helvetica, sans-serif;
+      background:
+        radial-gradient(ellipse at top, #48206b 0%, transparent 48%),
+        linear-gradient(160deg, #10051b, #1c0b30, #10051b);
+      min-height: 100vh;
+    }
+
+    button, input { font: inherit; }
+
+    button:focus-visible, a:focus-visible, input:focus-visible {
+      outline: 3px solid white;
+      outline-offset: 4px;
+    }
+
+    .page {
+      width: min(1050px, 92%);
+      margin: auto;
+    }
+
+    .hero {
+      min-height: 82vh;
+      padding: 65px 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+    }
+
+    .pill {
+      border: 1px solid var(--purple);
+      border-radius: 999px;
+      padding: 10px 17px;
+      color: var(--light-purple);
+      background: #a855f71a;
+      font-size: .85rem;
+      font-weight: 800;
+      letter-spacing: 2px;
+      box-shadow: 0 0 20px #a855f733;
+    }
+
+    h1 {
+      margin: 27px 0 18px;
+      font-size: clamp(2.5rem, 8vw, 5.7rem);
+      line-height: 1.02;
+      letter-spacing: -2px;
+      text-shadow: 0 0 15px var(--purple), 0 0 35px #a855f799;
+    }
+
+    h1 span {
+      display: block;
+      color: var(--light-purple);
+    }
+
+    .hero p, .subtitle {
+      max-width: 680px;
+      color: var(--muted);
+      line-height: 1.7;
+      text-align: center;
+    }
+
+    .main-button {
+      display: inline-block;
+      margin-top: 25px;
+      padding: 16px 24px;
+      border: 2px solid var(--light-purple);
+      border-radius: 13px;
+      background: var(--purple);
+      color: white;
+      text-decoration: none;
+      font-weight: 900;
+      box-shadow: 0 0 22px #a855f766;
+      transition: transform .2s, box-shadow .2s;
+    }
+
+    .main-button:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 0 32px #a855f7bb;
+    }
+
+    section { padding: 35px 0 75px; }
+
+    .section-title {
+      margin: 0 0 12px;
+      text-align: center;
+      font-size: clamp(2rem, 5vw, 3rem);
+      text-shadow: 0 0 18px #a855f799;
+    }
+
+    .subtitle {
+      margin: 0 auto 32px;
+    }
+
+    .candidates {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 24px;
+    }
+
+    .candidate {
+      min-height: 355px;
+      padding: 30px 24px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      color: white;
+      cursor: pointer;
+      border: 2px solid #7134a5;
+      border-radius: 23px;
+      background: linear-gradient(145deg, #2c1244, #1a0a2b);
+      box-shadow: 0 0 22px #a855f722;
+      transition: .2s ease;
+    }
+
+    .candidate:hover {
+      transform: translateY(-4px);
+      border-color: var(--light-purple);
+      box-shadow: 0 0 28px #a855f755;
+    }
+
+    .candidate.selected {
+      border-color: var(--light-purple);
+      background: linear-gradient(145deg, #49216b, #28103e);
+      box-shadow: 0 0 0 2px #a855f755, 0 0 35px #a855f788;
+    }
+
+    .candidate-emoji {
+      display: grid;
+      place-items: center;
+      width: 92px;
+      height: 92px;
+      margin: 8px 0 20px;
+      border: 2px solid var(--purple);
+      border-radius: 50%;
+      background: #a855f722;
+      font-size: 3rem;
+      box-shadow: 0 0 23px #a855f744;
+    }
+
+    .candidate h3 {
+      margin: 0 0 14px;
+      font-size: 2rem;
+    }
+
+    .candidate p {
+      margin: 0;
+      color: var(--muted);
+      line-height: 1.7;
+    }
+
+    .card-hint {
+      margin-top: auto;
+      padding-top: 25px;
+      color: var(--light-purple);
+      font-weight: 900;
+      font-size: .85rem;
+    }
+
+    .message {
+      display: none;
+      max-width: 800px;
+      margin: 25px auto;
+      padding: 20px;
+      border: 1px solid var(--purple);
+      border-radius: 16px;
+      background: #a855f718;
+      text-align: center;
+      line-height: 1.7;
+      box-shadow: 0 0 20px #a855f722;
+    }
+
+    .message.visible { display: block; }
+
+    .vote-panel {
+      margin-top: 35px;
+      padding: 28px;
+      border: 1px solid #7134a5;
+      border-radius: 22px;
+      background: #160824dd;
+      box-shadow: 0 0 30px #a855f722;
+    }
+
+    .vote-panel h3 {
+      margin: 0 0 12px;
+      text-align: center;
+      font-size: 1.7rem;
+    }
+
+    .vote-panel > p {
+      color: var(--muted);
+      line-height: 1.6;
+      text-align: center;
+    }
+
+    .field-label {
+      display: block;
+      margin: 25px 0 9px;
+      font-weight: 800;
+    }
+
+    #voterCode {
+      display: block;
+      width: 100%;
+      padding: 14px;
+      border: 1px solid #9b5bd0;
+      border-radius: 11px;
+      background: #10051b;
+      color: white;
+    }
+
+    #voterCode::placeholder { color: #b99bcc; }
+
+    .result-row { margin: 24px 0; }
+
+    .result-label {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 9px;
+      font-weight: 800;
+    }
+
+    .track {
+      height: 15px;
+      overflow: hidden;
+      border: 1px solid #7134a5;
+      border-radius: 999px;
+      background: #10051b;
+    }
+
+    .bar {
+      width: 0;
+      height: 100%;
+      border-radius: inherit;
+      background: linear-gradient(90deg, #7e22ce, #e9d5ff);
+      box-shadow: 0 0 15px #a855f7;
+      transition: width .4s ease;
+    }
+
+    .total {
+      margin-top: 25px;
+      text-align: center;
+      color: var(--light-purple);
+      font-weight: 900;
+      font-size: 1.1rem;
+    }
+
+    .submit-button {
+      width: 100%;
+      margin-top: 24px;
+      padding: 16px;
+      border: 2px solid var(--light-purple);
+      border-radius: 13px;
+      background: var(--purple);
+      color: white;
+      font-weight: 1000;
+      letter-spacing: 1px;
+      cursor: pointer;
+      box-shadow: 0 0 20px #a855f744;
+    }
+
+    .submit-button:disabled {
+      opacity: .45;
+      cursor: not-allowed;
+      box-shadow: none;
+    }
+
+    .status {
+      min-height: 30px;
+      margin-top: 16px;
+      color: var(--light-purple);
+      text-align: center;
+      line-height: 1.6;
+    }
+
+    .note {
+      margin-top: 22px;
+      padding: 15px;
+      border-radius: 12px;
+      background: #ffffff0a;
+      color: #d8c7e8;
+      font-size: .9rem;
+      line-height: 1.6;
+      text-align: center;
+    }
+
+    footer {
+      padding: 25px 10px 40px;
+      color: #b99bcc;
+      text-align: center;
+    }
+
+    @media (max-width: 700px) {
+      .candidates { grid-template-columns: 1fr; }
+      .candidate { min-height: 330px; }
+      .vote-panel { padding: 22px 17px; }
+      .hero { min-height: 75vh; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      html { scroll-behavior: auto; }
+      *, *::before, *::after {
+        animation-duration: .01ms !important;
+        transition-duration: .01ms !important;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <main class="page">
+    <header class="hero">
+      <div class="pill">🏆 CLASS SHERIFF ELECTION 🏆</div>
+
+      <h1>
+        VOTE
+        <span>REY</span>
+        FOR CLASS SHERIFF
+      </h1>
+
+      <p>
+        Meet the candidates, learn about their ideas, and make your choice
+        for Class Sheriff!
+      </p>
+
+      <a class="main-button" href="#candidates">
+        MEET THE CANDIDATES ↓
+      </a>
+    </header>
+
+    <section id="candidates">
+      <h2 class="section-title">MEET THE CANDIDATES</h2>
+      <p class="subtitle">
+        Click a card to select a candidate. Click the same card again
+        to unselect them. Your vote is only submitted when you press
+        the Submit Vote button.
+      </p>
+
+      <div class="candidates">
+        <button
+          type="button"
+          class="candidate"
+          id="card-Rey"
+          aria-pressed="false"
+          onclick="selectCandidate('Rey')"
+        >
+          <div class="candidate-emoji" aria-hidden="true">👮🏻‍♂️</div>
+          <h3>Rey 👑</h3>
+          <p>
+            Rey wants to help classmates remember classroom rules,
+            treat everyone fairly, and keep the classroom a positive
+            place to learn. He hopes to be a responsible and helpful sheriff!
+          </p>
+          <span class="card-hint">CLICK TO SELECT REY</span>
+        </button>
+
+        <button
+          type="button"
+          class="candidate"
+          id="card-Dennis"
+          aria-pressed="false"
+          onclick="selectCandidate('Dennis')"
+        >
+          <div class="candidate-emoji" aria-hidden="true">⭐</div>
+          <h3>Dennis 🌟</h3>
+          <p>
+            Dennis wants everyone to feel included and respected.
+            He hopes to encourage teamwork, lead by example, and help
+            classmates learn together in a friendly classroom!
+          </p>
+          <span class="card-hint">CLICK TO SELECT DENNIS</span>
+        </button>
+      </div>
+
+      <div id="selectionMessage" class="message" role="status" aria-live="polite"></div>
+
+      <div class="vote-panel">
+        <h3>🗳️ CAST YOUR VOTE</h3>
+        <p>
+          Enter the private voting code given to you by your teacher.
+          Each code can be used for one vote.
+        </p>
+
+        <label class="field-label" for="voterCode">
+          Your private voting code
+        </label>
+        <input
+          id="voterCode"
+          type="password"
+          autocomplete="off"
+          maxlength="100"
+          placeholder="Enter your one-time code"
+        />
+
+        <div class="result-row">
+          <div class="result-label">
+            <span>👑 Rey</span>
+            <span id="reyCount">0 / 35</span>
+          </div>
+          <div class="track" role="progressbar" aria-label="Rey votes"
+               aria-valuemin="0" aria-valuemax="35" aria-valuenow="0"
+               id="reyProgress">
+            <div class="bar" id="reyBar"></div>
+          </div>
+        </div>
+
+        <div class="result-row">
+          <div class="result-label">
+            <span>⭐ Dennis</span>
+            <span id="dennisCount">0 / 35</span>
+          </div>
+          <div class="track" role="progressbar" aria-label="Dennis votes"
+               aria-valuemin="0" aria-valuemax="35" aria-valuenow="0"
+               id="dennisProgress">
+            <div class="bar" id="dennisBar"></div>
+          </div>
+        </div>
+
+        <div class="total" id="totalVotes">Total votes: 0 / 70</div>
+
+        <button
+          class="submit-button"
+          id="submitVote"
+          type="button"
+          onclick="castVote()"
+          disabled
+        >
+          SELECT A CANDIDATE FIRST
+        </button>
+
+        <div class="status" id="statusMessage" role="status" aria-live="polite"></div>
+
+        <div class="note">
+          📘 The Class Sheriff can remind classmates about classroom rules
+          and tell the teacher when something needs attention.
+          The teacher remains responsible for classroom discipline.
+        </div>
+      </div>
+    </section>
+
+    <footer>💜 Class Sheriff Election • Make your choice respectfully 💜</footer>
+  </main>
+
+  <script>
+    // Replace these with your own Supabase project details.
+    const SUPABASE_URL = "PASTE_YOUR_SUPABASE_PROJECT_URL_HERE";
+    const SUPABASE_PUBLISHABLE_KEY =
+      "PASTE_YOUR_SUPABASE_PUBLISHABLE_KEY_HERE";
+
+    const configured =
+      SUPABASE_URL.startsWith("https://") &&
+      !SUPABASE_URL.includes("PASTE_YOUR") &&
+      SUPABASE_PUBLISHABLE_KEY.length > 20 &&
+      !SUPABASE_PUBLISHABLE_KEY.includes("PASTE_YOUR");
+
+    const db = configured
+      ? window.supabase.createClient(
+          SUPABASE_URL,
+          SUPABASE_PUBLISHABLE_KEY
+        )
+      : null;
+
+    let selectedCandidate = null;
+    let voteInProgress = false;
+    let hasSubmittedInThisPage = false;
+
+    function selectCandidate(name) {
+      if (voteInProgress || hasSubmittedInThisPage) return;
+
+      const message = document.getElementById("selectionMessage");
+
+      if (selectedCandidate === name) {
+        selectedCandidate = null;
+        message.textContent = "";
+        message.classList.remove("visible");
+      } else {
+        selectedCandidate = name;
+
+        if (name === "Rey") {
+          message.textContent =
+            "You selected Rey! 👮🏻‍♂️ Rey wants to help classmates remember the rules, treat everyone fairly, and make the classroom a positive place to learn. 👑";
+        } else {
+          message.textContent =
+            "You selected Dennis! ⭐ Dennis wants to encourage teamwork, include everyone, and help classmates learn together in a friendly classroom. 🌟";
+        }
+
+        message.classList.add("visible");
+      }
+
+      updateCardSelection();
+      updateSubmitButton();
+    }
+
+    function updateCardSelection() {
+      ["Rey", "Dennis"].forEach((name) => {
+        const card = document.getElementById("card-" + name);
+        const active = selectedCandidate === name;
+
+        card.classList.toggle("selected", active);
+        card.setAttribute("aria-pressed", String(active));
+      });
+    }
+
+    function updateSubmitButton() {
+      const button = document.getElementById("submitVote");
+
+      if (hasSubmittedInThisPage) {
+        button.disabled = true;
+        button.textContent = "VOTE SUBMITTED";
+      } else if (voteInProgress) {
+        button.disabled = true;
+        button.textContent = "SUBMITTING VOTE...";
+      } else if (!selectedCandidate) {
+        button.disabled = true;
+        button.textContent = "SELECT A CANDIDATE FIRST";
+      } else {
+        button.disabled = false;
+        button.textContent =
+          "SUBMIT VOTE FOR " + selectedCandidate.toUpperCase();
+      }
+    }
+
+    function updateCounts(counts) {
+      if (!counts) return;
+
+      const rey = Math.min(35, Math.max(0, Number(counts.Rey) || 0));
+      const dennis = Math.min(35, Math.max(0, Number(counts.Dennis) || 0));
+
+      document.getElementById("reyCount").textContent = rey + " / 35";
+      document.getElementById("dennisCount").textContent = dennis + " / 35";
+
+      document.getElementById("reyBar").style.width =
+        (rey / 35 * 100) + "%";
+      document.getElementById("dennisBar").style.width =
+        (dennis / 35 * 100) + "%";
+
+      document.getElementById("reyProgress").setAttribute("aria-valuenow", rey);
+      document.getElementById("dennisProgress").setAttribute("aria-valuenow", dennis);
+
+      document.getElementById("totalVotes").textContent =
+        "Total votes: " + (rey + dennis) + " / 70";
+    }
+
+    async function refreshCounts() {
+      if (!db) return;
+
+      try {
+        const { data, error } = await db.rpc("get_sheriff_vote_counts");
+        if (error) throw error;
+
+        const counts = Array.isArray(data) ? data[0] : data;
+        if (counts) updateCounts(counts);
+      } catch (error) {
+        console.error("Vote count refresh failed:", error);
+        document.getElementById("statusMessage").textContent =
+          "Couldn't load live results. Check the database setup.";
+      }
+    }
+
+    async function castVote() {
+      const status = document.getElementById("statusMessage");
+      const codeInput = document.getElementById("voterCode");
+      const code = codeInput.value.trim();
+
+      if (!selectedCandidate || voteInProgress || hasSubmittedInThisPage) {
+        return;
+      }
+
+      if (!code) {
+        status.textContent = "Please enter your private voting code.";
+        codeInput.focus();
+        return;
+      }
+
+      if (!db) {
+        status.textContent =
+          "Voting is not connected yet. Add your Supabase URL and publishable key.";
+        return;
+      }
+
+      voteInProgress = true;
+      updateSubmitButton();
+      status.textContent = "Submitting your vote...";
+
+      try {
+        const candidate = selectedCandidate;
+
+        const { data, error } = await db.rpc("cast_sheriff_vote", {
+          p_candidate: candidate,
+          p_voter_code: code
+        });
+
+        if (error) throw error;
+
+        const result = Array.isArray(data) ? data[0] : data;
+
+        if (result?.counts) updateCounts(result.counts);
+        else await refreshCounts();
+
+        if (result?.status === "success") {
+          hasSubmittedInThisPage = true;
+          selectedCandidate = null;
+          codeInput.value = "";
+
+          updateCardSelection();
+
+          const message = document.getElementById("selectionMessage");
+          message.textContent = "";
+          message.classList.remove("visible");
+
+          status.textContent = "✅ Your vote was saved successfully!";
+        } else if (result?.status === "already_voted") {
+          status.textContent = "That voting code has already been used.";
+        } else if (result?.status === "candidate_full") {
+          status.textContent =
+            "That candidate has reached the 35-vote limit. You may select the other candidate.";
+        } else if (result?.status === "invalid_code") {
+          status.textContent =
+            "That code isn't valid. Please check it with your teacher.";
+        } else if (result?.status === "invalid_candidate") {
+          status.textContent = "Invalid candidate. Please select again.";
+        } else {
+          status.textContent =
+            "The vote wasn't accepted. Please try again.";
+        }
+      } catch (error) {
+        console.error("Vote submission failed:", error);
+        status.textContent =
+          "We couldn't submit your vote. Check your connection and try again.";
+      } finally {
+        voteInProgress = false;
+        updateSubmitButton();
+      }
+    }
+
+    updateSubmitButton();
+    refreshCounts();
+    setInterval(refreshCounts, 5000);
+  </script>
+</body>
+</html>
