@@ -6,8 +6,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Class Sheriff Election 💜</title>
 
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-
   <style>
     :root {
       --purple: #a855f7;
@@ -223,24 +221,6 @@
       text-align: center;
     }
 
-    .field-label {
-      display: block;
-      margin: 25px 0 9px;
-      font-weight: 800;
-    }
-
-    #voterCode {
-      display: block;
-      width: 100%;
-      padding: 14px;
-      border: 1px solid #9b5bd0;
-      border-radius: 11px;
-      background: #10051b;
-      color: white;
-    }
-
-    #voterCode::placeholder { color: #b99bcc; }
-
     .result-row { margin: 24px 0; }
 
     .result-label {
@@ -362,9 +342,8 @@
     <section id="candidates">
       <h2 class="section-title">MEET THE CANDIDATES</h2>
       <p class="subtitle">
-        Click a card to select a candidate. Click the same card again
-        to unselect them. Your vote is only submitted when you press
-        the Submit Vote button.
+        Choose a candidate, then submit your vote. Shared results update
+        on every device.
       </p>
 
       <div class="candidates">
@@ -408,20 +387,8 @@
       <div class="vote-panel">
         <h3>🗳️ CAST YOUR VOTE</h3>
         <p>
-          Enter the private voting code given to you by your teacher.
-          Each code can be used for one vote.
+          Choose one candidate and submit once from this device.
         </p>
-
-        <label class="field-label" for="voterCode">
-          Your private voting code
-        </label>
-        <input
-          id="voterCode"
-          type="password"
-          autocomplete="off"
-          maxlength="100"
-          placeholder="Enter your one-time code"
-        />
 
         <div class="result-row">
           <div class="result-label">
@@ -473,30 +440,41 @@
   </main>
 
   <script>
-    // Replace these with your own Supabase project details.
-    const SUPABASE_URL = "PASTE_YOUR_SUPABASE_PROJECT_URL_HERE";
-    const SUPABASE_PUBLISHABLE_KEY =
-      "PASTE_YOUR_SUPABASE_PUBLISHABLE_KEY_HERE";
-
-    const configured =
-      SUPABASE_URL.startsWith("https://") &&
-      !SUPABASE_URL.includes("PASTE_YOUR") &&
-      SUPABASE_PUBLISHABLE_KEY.length > 20 &&
-      !SUPABASE_PUBLISHABLE_KEY.includes("PASTE_YOUR");
-
-    const db = configured
-      ? window.supabase.createClient(
-          SUPABASE_URL,
-          SUPABASE_PUBLISHABLE_KEY
-        )
-      : null;
+    const API_URL = "https://class-election-api.wright-ax.workers.dev";
+    const VOTER_ID_KEY = "reysSheriffVoterId";
 
     let selectedCandidate = null;
     let voteInProgress = false;
-    let hasSubmittedInThisPage = false;
+    let hasSubmitted = false;
+
+    function getVoterId() {
+      let id = localStorage.getItem(VOTER_ID_KEY);
+      if (!id) {
+        id = crypto.randomUUID
+          ? crypto.randomUUID()
+          : "reys-" + Date.now().toString(36) + Math.random().toString(36).slice(2);
+        localStorage.setItem(VOTER_ID_KEY, id);
+      }
+      return id;
+    }
+
+    const voterId = getVoterId();
+
+    async function requestApi(path, options = {}) {
+      const response = await fetch(API_URL + path, {
+        ...options,
+        headers: {
+          "Content-Type": "application/json",
+          ...(options.headers || {})
+        }
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Voting service is unavailable.");
+      return data;
+    }
 
     function selectCandidate(name) {
-      if (voteInProgress || hasSubmittedInThisPage) return;
+      if (voteInProgress || hasSubmitted) return;
 
       const message = document.getElementById("selectionMessage");
 
@@ -535,9 +513,9 @@
     function updateSubmitButton() {
       const button = document.getElementById("submitVote");
 
-      if (hasSubmittedInThisPage) {
+      if (hasSubmitted) {
         button.disabled = true;
-        button.textContent = "VOTE SUBMITTED";
+        button.textContent = "VOTE ALREADY SUBMITTED FROM THIS DEVICE";
       } else if (voteInProgress) {
         button.disabled = true;
         button.textContent = "SUBMITTING VOTE...";
@@ -573,39 +551,40 @@
     }
 
     async function refreshCounts() {
-      if (!db) return;
-
       try {
-        const { data, error } = await db.rpc("get_sheriff_vote_counts");
-        if (error) throw error;
-
-        const counts = Array.isArray(data) ? data[0] : data;
-        if (counts) updateCounts(counts);
+        const data = await requestApi("/api/reys-election/results");
+        updateCounts(data.counts);
       } catch (error) {
         console.error("Vote count refresh failed:", error);
         document.getElementById("statusMessage").textContent =
-          "Couldn't load live results. Check the database setup.";
+          "Couldn't load live results. Check your connection and try again.";
       }
+    }
+
+    async function loadBallot() {
+      try {
+        const data = await requestApi(
+          "/api/reys-election/ballot?voterId=" + encodeURIComponent(voterId)
+        );
+        if (data.hasVoted) {
+          hasSubmitted = true;
+          selectedCandidate = data.candidate;
+          updateCardSelection();
+          const status = document.getElementById("statusMessage");
+          status.textContent = "This device has already submitted a vote.";
+        }
+      } catch (error) {
+        console.error("Vote status check failed:", error);
+        document.getElementById("statusMessage").textContent =
+          "Couldn't check this device's vote. Please try again.";
+      }
+      updateSubmitButton();
     }
 
     async function castVote() {
       const status = document.getElementById("statusMessage");
-      const codeInput = document.getElementById("voterCode");
-      const code = codeInput.value.trim();
 
-      if (!selectedCandidate || voteInProgress || hasSubmittedInThisPage) {
-        return;
-      }
-
-      if (!code) {
-        status.textContent = "Please enter your private voting code.";
-        codeInput.focus();
-        return;
-      }
-
-      if (!db) {
-        status.textContent =
-          "Voting is not connected yet. Add your Supabase URL and publishable key.";
+      if (!selectedCandidate || voteInProgress || hasSubmitted) {
         return;
       }
 
@@ -616,38 +595,24 @@
       try {
         const candidate = selectedCandidate;
 
-        const { data, error } = await db.rpc("cast_sheriff_vote", {
-          p_candidate: candidate,
-          p_voter_code: code
+        const result = await requestApi("/api/reys-election/vote", {
+          method: "POST",
+          body: JSON.stringify({ voterId, candidate })
         });
-
-        if (error) throw error;
-
-        const result = Array.isArray(data) ? data[0] : data;
 
         if (result?.counts) updateCounts(result.counts);
         else await refreshCounts();
 
         if (result?.status === "success") {
-          hasSubmittedInThisPage = true;
-          selectedCandidate = null;
-          codeInput.value = "";
-
+          hasSubmitted = true;
           updateCardSelection();
-
-          const message = document.getElementById("selectionMessage");
-          message.textContent = "";
-          message.classList.remove("visible");
-
           status.textContent = "✅ Your vote was saved successfully!";
         } else if (result?.status === "already_voted") {
-          status.textContent = "That voting code has already been used.";
+          hasSubmitted = true;
+          status.textContent = "This device has already submitted a vote.";
         } else if (result?.status === "candidate_full") {
           status.textContent =
             "That candidate has reached the 35-vote limit. You may select the other candidate.";
-        } else if (result?.status === "invalid_code") {
-          status.textContent =
-            "That code isn't valid. Please check it with your teacher.";
         } else if (result?.status === "invalid_candidate") {
           status.textContent = "Invalid candidate. Please select again.";
         } else {
@@ -666,6 +631,7 @@
 
     updateSubmitButton();
     refreshCounts();
+    loadBallot();
     setInterval(refreshCounts, 5000);
   </script>
 </body>
