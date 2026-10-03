@@ -387,7 +387,7 @@
       <div class="vote-panel">
         <h3>🗳️ CAST YOUR VOTE</h3>
         <p>
-          Choose one candidate and submit once from this device.
+          Choose one candidate and submit from this device. Tap the selected candidate again to remove your vote.
         </p>
 
         <div class="result-row">
@@ -474,7 +474,12 @@
     }
 
     function selectCandidate(name) {
-      if (voteInProgress || hasSubmitted) return;
+      if (voteInProgress) return;
+
+      if (hasSubmitted) {
+        if (selectedCandidate === name) withdrawVote();
+        return;
+      }
 
       const message = document.getElementById("selectionMessage");
 
@@ -623,6 +628,36 @@
         console.error("Vote submission failed:", error);
         status.textContent =
           "We couldn't submit your vote. Check your connection and try again.";
+      } finally {
+        voteInProgress = false;
+        updateSubmitButton();
+      }
+    }
+
+    async function withdrawVote() {
+      const status = document.getElementById("statusMessage");
+      voteInProgress = true;
+      updateSubmitButton();
+      status.textContent = "Removing your vote...";
+
+      try {
+        const result = await requestApi("/api/reys-election/withdraw", {
+          method: "POST",
+          body: JSON.stringify({ voterId })
+        });
+
+        hasSubmitted = false;
+        selectedCandidate = null;
+        updateCardSelection();
+        updateCounts(result.counts);
+
+        const message = document.getElementById("selectionMessage");
+        message.textContent = "";
+        message.classList.remove("visible");
+        status.textContent = "Your vote was removed. You can choose again.";
+      } catch (error) {
+        console.error("Vote removal failed:", error);
+        status.textContent = "We couldn't remove your vote. Check your connection and try again.";
       } finally {
         voteInProgress = false;
         updateSubmitButton();
